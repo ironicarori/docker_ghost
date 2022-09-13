@@ -1,0 +1,80 @@
+version: '3.9'
+
+services:
+  nginx-proxy:
+    image: nginxproxy/nginx-proxy
+    container_name: nginx-proxy
+    ports:
+      - 80:80
+      - 443:443
+    restart: unless-stopped
+    volumes:
+      - conf:/etc/nginx/conf.d
+      - certs:/etc/nginx/certs:ro
+      - vhost:/etc/nginx/vhost.d
+      - html:/usr/share/nginx/html
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+
+  nginx-proxy-acme:
+    image: nginxproxy/acme-companion
+    container_name: nginx-proxy-acme
+    depends_on:
+      - nginx-proxy
+    restart: unless-stopped
+    environment:
+      NGINX_PROXY_CONTAINER: ${NGINX_PROXY_CONTAINER}
+    volumes:
+      - certs:/etc/nginx/certs:rw
+      - acme:/etc/acme.sh
+      - vhost:/etc/nginx/vhost.d
+      - html:/usr/share/nginx/html
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  ghost:
+    image: ghost:5
+    container_name: ghost
+    depends_on:
+      - nginx-proxy
+      - nginx-proxy-acme
+      - db
+    restart: unless-stopped
+    ports:
+      - 8080:2368
+    environment:
+      VIRTUAL_HOST: ${GHOST_VIRTUAL_HOST}
+      VIRTUAL_PORT: ${GHOST_VIRTUAL_PORT}
+      LETSENCRYPT_HOST: ${GHOST_LETSENCRYPT_HOST}
+      LETSENCRYPT_EMAIL: ${GHOST_LETSENCRYPT_EMAIL}
+      database__client: ${GHOST_DB_CLIENT}
+      database__connection__host: ${GHOST_DB_HOST}
+      database__connection__port: ${GHOST_DB_PORT}
+      database__connection__user: ${MYSQL_USER}
+      database__connection__password: ${MYSQL_PASSWORD}
+      database__connection__database: ${MYSQL_DATABASE}
+      url: ${GHOST_URL}
+    volumes:
+      - ghost-data:/var/lib/ghost/content
+
+  db:
+    image: mysql:8
+    container_name: db
+    depends_on:
+      - nginx-proxy
+      - nginx-proxy-acme
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+    volumes:
+      - db-data:/var/lib/mysql
+
+volumes:
+  conf:
+  certs:
+  vhost:
+  html:
+  acme:
+  ghost-data:
+  db-data:
