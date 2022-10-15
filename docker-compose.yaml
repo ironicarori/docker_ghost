@@ -54,6 +54,7 @@ services:
       url: ${GHOST_URL}
     volumes:
       - ghost-data:/var/lib/ghost/content
+      - ghost-ver:/var/lib/ghost/versions
 
   db:
     image: mysql:8
@@ -77,4 +78,5 @@ volumes:
   html:
   acme:
   ghost-data:
+  ghost-ver:
   db-data:
